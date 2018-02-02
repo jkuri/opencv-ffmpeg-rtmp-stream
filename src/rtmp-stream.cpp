@@ -18,7 +18,7 @@ void stream_video(double width, double height, int fps, int camID)
   av_register_all();
   avformat_network_init();
 
-  const char *output = "rtmp://localhost/show/stream";
+  const char *output = "rtmp://localhost/live/stream";
   const AVRational dst_fps = {fps, 1};
   int ret;
 
@@ -58,9 +58,21 @@ void stream_video(double width, double height, int fps, int camID)
   }
 
   // create new video stream
-  AVCodec *codec = avcodec_find_encoder(outctx->oformat->video_codec);
-  AVCodecContext *avctx = avcodec_alloc_context3(codec);
+  AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_H264);
   AVStream *strm = avformat_new_stream(outctx, codec);
+  AVCodecContext *avctx = avcodec_alloc_context3(codec);
+
+  avctx->codec_id = AV_CODEC_ID_H264;
+  avctx->bit_rate = 400000;
+  avctx->width = width;
+  avctx->height = height;
+  avctx->time_base.den = fps;
+  avctx->time_base.num = 1;
+  avctx->gop_size = 12;
+  avctx->pix_fmt = AV_PIX_FMT_YUV420P;
+  avctx->framerate = dst_fps;
+  avctx->time_base = av_inv_q(dst_fps);
+  // avctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
   ret = avcodec_parameters_from_context(strm->codecpar, avctx);
   if (ret < 0)
@@ -68,19 +80,6 @@ void stream_video(double width, double height, int fps, int camID)
     std::cout << "Could not initialize stream codec parameters!" << std::endl;
     exit(1);
   }
-
-  avctx->width = width;
-  avctx->height = height;
-  avctx->time_base = av_inv_q(dst_fps);
-  avctx->framerate = dst_fps;
-  avctx->pix_fmt = codec->pix_fmts[0];
-  avctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
-  strm->codecpar->width = width;
-  strm->codecpar->height = height;
-  strm->codecpar->format = codec->pix_fmts[0];
-  strm->time_base = strm->time_base = av_inv_q(dst_fps);
-  strm->r_frame_rate = strm->avg_frame_rate = dst_fps;
 
   AVDictionary *opts = nullptr;
   av_dict_set(&opts, "preset", "superfast", 0);
@@ -95,7 +94,7 @@ void stream_video(double width, double height, int fps, int camID)
   }
 
   // initialize sample scaler
-  SwsContext *swsctx = sws_getCachedContext(nullptr, width, height, AV_PIX_FMT_BGR24, width, height, avctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
+  SwsContext *swsctx = sws_getContext(width, height, AV_PIX_FMT_BGR24, width, height, avctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
   if (!swsctx)
   {
     std::cout << "Could not initialize sample scaler!" << std::endl;
@@ -126,6 +125,8 @@ void stream_video(double width, double height, int fps, int camID)
 
   do
   {
+    nb_frames++;
+
     if (!end_of_stream)
     {
       cam >> image;
@@ -154,16 +155,18 @@ void stream_video(double width, double height, int fps, int camID)
       exit(1);
     }
 
+    pkt.stream_index = 0;
+    pkt.pts = av_rescale_q_rnd(pkt.pts, avctx->time_base, strm->time_base, AVRounding(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+
     // rescale packet timestamp.
-    pkt.duration = 1;
-    av_packet_rescale_ts(&pkt, avctx->time_base, strm->time_base);
+    // pkt.duration = 1;
+    // av_packet_rescale_ts(&pkt, avctx->time_base, strm->time_base);
     // write packet.
     av_write_frame(outctx, &pkt);
 
     // av_interleaved_write_frame(outctx, &pkt);
 
     std::cout << " Frames: " << nb_frames << '\r' << std::flush;
-    ++nb_frames;
 
     av_packet_unref(&pkt);
   } while (!end_of_stream);
@@ -180,7 +183,7 @@ void stream_video(double width, double height, int fps, int camID)
 int main()
 {
   double width = 640, height = 480, fps = 30;
-  int camID = 0;
+  int camID = 1;
 
   stream_video(width, height, fps, camID);
 
