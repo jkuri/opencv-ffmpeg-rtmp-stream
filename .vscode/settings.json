@@ -9,6 +9,12 @@
     "stdexcept": "cpp",
     "typeinfo": "cpp",
     "algorithm": "cpp",
-    "type_traits": "cpp"
+    "type_traits": "cpp",
+    "array": "cpp",
+    "iterator": "cpp",
+    "string": "cpp",
+    "string_view": "cpp",
+    "vector": "cpp",
+    "memory": "cpp"
   }
 }
