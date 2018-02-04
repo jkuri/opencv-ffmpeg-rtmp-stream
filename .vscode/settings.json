@@ -15,6 +15,9 @@
     "string": "cpp",
     "string_view": "cpp",
     "vector": "cpp",
-    "memory": "cpp"
+    "memory": "cpp",
+    "__split_buffer": "cpp",
+    "bitset": "cpp",
+    "utility": "cpp"
   }
 }
