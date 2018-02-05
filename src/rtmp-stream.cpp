@@ -68,16 +68,14 @@ void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double
   codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
   codec_ctx->width = width;
   codec_ctx->height = height;
-  codec_ctx->time_base.den = fps;
-  codec_ctx->time_base.num = 1;
   codec_ctx->gop_size = 12;
   codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
   codec_ctx->framerate = dst_fps;
   codec_ctx->time_base = av_inv_q(dst_fps);
-  // if (fctx->oformat->flags & AVFMT_GLOBALHEADER)
-  // {
-  //   codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-  // }
+  if (fctx->oformat->flags & AVFMT_GLOBALHEADER)
+  {
+    codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+  }
 }
 
 void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec)
@@ -90,10 +88,9 @@ void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCo
   }
 
   AVDictionary *codec_options = nullptr;
-  av_dict_set(&codec_options, "profile", "high", 0);
+  av_dict_set(&codec_options, "profile", "baseline", 0);
   av_dict_set(&codec_options, "preset", "superfast", 0);
   av_dict_set(&codec_options, "tune", "zerolatency", 0);
-  av_dict_set(&codec_options, "threads", "1", 0);
 
   // open video encoder
   ret = avcodec_open2(codec_ctx, codec, &codec_options);
@@ -129,26 +126,6 @@ AVFrame *allocate_frame_buffer(AVCodecContext *codec_ctx, double width, double h
   return frame;
 }
 
-void hexdump(void *ptr, int buflen)
-{
-  unsigned char *buf = (unsigned char *)ptr;
-  int i, j;
-  for (i = 0; i < buflen; i += 16)
-  {
-    printf("%06x: ", i);
-    for (j = 0; j < 16; j++)
-      if (i + j < buflen)
-        printf("%02x ", buf[i + j]);
-      else
-        printf("   ");
-    printf(" ");
-    for (j = 0; j < 16; j++)
-      if (i + j < buflen)
-        printf("%c", isprint(buf[i + j]) ? buf[i + j] : '.');
-    printf("\n");
-  }
-}
-
 void stream_video(double width, double height, int fps, int camID)
 {
   av_register_all();
@@ -172,18 +149,13 @@ void stream_video(double width, double height, int fps, int camID)
   out_stream = avformat_new_stream(ofmt_ctx, out_codec);
   out_codec_ctx = avcodec_alloc_context3(out_codec);
 
-  // unsigned char sps_pps[23] = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x64, 0x00, 0x29, 0xac, 0x1b, 0x1a, 0x12, 0xe0, 0x51, 0x90, 0x00, 0x00, 0x00, 0x01, 0x68, 0xea, 0x43, 0xcb };
-  unsigned char sps_pps[23] = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2, 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
-  out_codec_ctx->extradata_size = 23;
-  out_codec_ctx->extradata = (uint8_t*)av_malloc(23 + AV_INPUT_BUFFER_PADDING_SIZE);
-  if (out_codec_ctx->extradata == NULL) {
-    printf("could not av_malloc the video params extradata!\n");
-    exit(1);
-  }
-  memcpy(out_codec_ctx->extradata, sps_pps, 23);
-
   set_codec_params(ofmt_ctx, out_codec_ctx, width, height, fps);
   initialize_codec_stream(out_stream, out_codec_ctx, out_codec);
+
+  out_stream->codecpar->extradata = out_codec_ctx->extradata;
+  out_stream->codecpar->extradata_size = out_codec_ctx->extradata_size;
+
+  std::cout << out_stream->codecpar->codec_type << std::endl;
 
   av_dump_format(ofmt_ctx, 0, output, 1);
 
@@ -210,7 +182,7 @@ void stream_video(double width, double height, int fps, int camID)
     cam >> image;
     const int stride[] = {static_cast<int>(image.step[0])};
     sws_scale(swsctx, &image.data, stride, 0, image.rows, frame->data, frame->linesize);
-    frame->pts = frame_pts++;
+    frame->pts = (1.0 / fps) * 1000 * frame_pts++;
 
     AVPacket pkt = {0};
     av_init_packet(&pkt);
@@ -228,8 +200,6 @@ void stream_video(double width, double height, int fps, int camID)
       std::cout << "Error receiving packet from codec context!" << std::endl;
       exit(1);
     }
-
-    hexdump(pkt.data, sizeof(pkt.data));
 
     av_interleaved_write_frame(ofmt_ctx, &pkt);
 
@@ -249,7 +219,7 @@ void stream_video(double width, double height, int fps, int camID)
 int main()
 {
   av_log_set_level(AV_LOG_DEBUG);
-  double width = 640, height = 480;
+  double width = 800, height = 600;
   int camID = 1, fps = 25;
 
   stream_video(width, height, fps, camID);
