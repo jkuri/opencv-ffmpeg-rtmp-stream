@@ -7,19 +7,9 @@
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
-#include <libavutil/avutil.h>
-#include <libavutil/pixdesc.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 }
-
-struct buffer_data
-{
-  uint8_t *buf;
-  size_t size;
-  uint8_t *ptr;
-  size_t room; ///< size left in the buffer
-};
 
 cv::VideoCapture get_device(int camID, double width, double height)
 {
@@ -88,7 +78,7 @@ void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCo
   }
 
   AVDictionary *codec_options = nullptr;
-  av_dict_set(&codec_options, "profile", "baseline", 0);
+  av_dict_set(&codec_options, "profile", "high", 0);
   av_dict_set(&codec_options, "preset", "superfast", 0);
   av_dict_set(&codec_options, "tune", "zerolatency", 0);
 
@@ -126,13 +116,35 @@ AVFrame *allocate_frame_buffer(AVCodecContext *codec_ctx, double width, double h
   return frame;
 }
 
+void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *frame)
+{
+  AVPacket pkt = {0};
+  av_init_packet(&pkt);
+
+  int ret = avcodec_send_frame(codec_ctx, frame);
+  if (ret < 0)
+  {
+    std::cout << "Error sending frame to codec context!" << std::endl;
+    exit(1);
+  }
+
+  ret = avcodec_receive_packet(codec_ctx, &pkt);
+  if (ret < 0)
+  {
+    std::cout << "Error receiving packet from codec context!" << std::endl;
+    exit(1);
+  }
+
+  av_interleaved_write_frame(fmt_ctx, &pkt);
+  av_packet_unref(&pkt);
+}
+
 void stream_video(double width, double height, int fps, int camID)
 {
   av_register_all();
   avformat_network_init();
 
   const char *output = "rtmp://localhost/live/stream";
-  // const char *output = "/Users/jan/Desktop/file.flv";
   int ret;
   auto cam = get_device(camID, width, height);
   std::vector<uint8_t> imgbuf(height * width * 3 + 16);
@@ -170,43 +182,17 @@ void stream_video(double width, double height, int fps, int camID)
     exit(1);
   }
 
-  // encoding loop
-  int64_t frame_pts = 0;
-  unsigned nb_frames = 0;
   bool end_of_stream = false;
-
   do
   {
     cam >> image;
     const int stride[] = {static_cast<int>(image.step[0])};
     sws_scale(swsctx, &image.data, stride, 0, image.rows, frame->data, frame->linesize);
-    frame->pts = (1.0 / fps) * 1000 * frame_pts++;
-
-    AVPacket pkt = {0};
-    av_init_packet(&pkt);
-
-    ret = avcodec_send_frame(out_codec_ctx, frame);
-    if (ret < 0)
-    {
-      std::cout << "Error sending frame to codec context!" << std::endl;
-      exit(1);
-    }
-
-    ret = avcodec_receive_packet(out_codec_ctx, &pkt);
-    if (ret < 0)
-    {
-      std::cout << "Error receiving packet from codec context!" << std::endl;
-      exit(1);
-    }
-
-    av_interleaved_write_frame(ofmt_ctx, &pkt);
-
-    av_packet_unref(&pkt);
-    nb_frames++;
+    frame->pts += av_rescale_q(1, out_codec_ctx->time_base, out_stream->time_base);
+    write_frame(out_codec_ctx, ofmt_ctx, frame);
   } while (!end_of_stream);
 
   av_write_trailer(ofmt_ctx);
-  std::cout << nb_frames << " frames encoded" << std::endl;
 
   av_frame_free(&frame);
   avcodec_close(out_codec_ctx);
@@ -216,8 +202,8 @@ void stream_video(double width, double height, int fps, int camID)
 
 int main()
 {
-  av_log_set_level(AV_LOG_DEBUG);
-  double width = 800, height = 600;
+  // av_log_set_level(AV_LOG_DEBUG);
+  double width = 1280, height = 720;
   int camID = 1, fps = 25;
 
   stream_video(width, height, fps, camID);
