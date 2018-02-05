@@ -155,8 +155,6 @@ void stream_video(double width, double height, int fps, int camID)
   out_stream->codecpar->extradata = out_codec_ctx->extradata;
   out_stream->codecpar->extradata_size = out_codec_ctx->extradata_size;
 
-  std::cout << out_stream->codecpar->codec_type << std::endl;
-
   av_dump_format(ofmt_ctx, 0, output, 1);
 
   auto *swsctx = initialize_sample_scaler(out_codec_ctx, width, height);
