@@ -15,7 +15,7 @@ brew install ffmpeg --with-sdl2 --with-freetype
 On Ubuntu Linux.
 
 ```sh
-sudo apt-get install ffmpeg -y
+sudo apt-get install ffmpeg libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavresample-dev libavdevice-dev -y
 ```
 
 #### Install OpenCV
