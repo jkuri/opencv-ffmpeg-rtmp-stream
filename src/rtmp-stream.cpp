@@ -3,6 +3,7 @@
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
+#include "clipp.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -10,6 +11,8 @@ extern "C" {
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 }
+
+using namespace clipp;
 
 cv::VideoCapture get_device(int camID, double width, double height)
 {
@@ -49,7 +52,7 @@ void initialize_io_context(AVFormatContext *&fctx, const char *output)
   }
 }
 
-void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double width, double height, int fps)
+void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double width, double height, int fps, int bitrate)
 {
   const AVRational dst_fps = {fps, 1};
 
@@ -62,13 +65,14 @@ void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double
   codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
   codec_ctx->framerate = dst_fps;
   codec_ctx->time_base = av_inv_q(dst_fps);
+  codec_ctx->bit_rate = bitrate;
   if (fctx->oformat->flags & AVFMT_GLOBALHEADER)
   {
     codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 }
 
-void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec)
+void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec, std::string codec_profile)
 {
   int ret = avcodec_parameters_from_context(stream->codecpar, codec_ctx);
   if (ret < 0)
@@ -78,7 +82,7 @@ void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCo
   }
 
   AVDictionary *codec_options = nullptr;
-  av_dict_set(&codec_options, "profile", "high", 0);
+  av_dict_set(&codec_options, "profile", codec_profile.c_str(), 0);
   av_dict_set(&codec_options, "preset", "superfast", 0);
   av_dict_set(&codec_options, "tune", "zerolatency", 0);
 
@@ -139,12 +143,12 @@ void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *f
   av_packet_unref(&pkt);
 }
 
-void stream_video(double width, double height, int fps, int camID)
+void stream_video(double width, double height, int fps, int camID, int bitrate, std::string codec_profile, std::string server)
 {
   av_register_all();
   avformat_network_init();
 
-  const char *output = "rtmp://localhost/live/stream";
+  const char *output = server.c_str();
   int ret;
   auto cam = get_device(camID, width, height);
   std::vector<uint8_t> imgbuf(height * width * 3 + 16);
@@ -161,8 +165,8 @@ void stream_video(double width, double height, int fps, int camID)
   out_stream = avformat_new_stream(ofmt_ctx, out_codec);
   out_codec_ctx = avcodec_alloc_context3(out_codec);
 
-  set_codec_params(ofmt_ctx, out_codec_ctx, width, height, fps);
-  initialize_codec_stream(out_stream, out_codec_ctx, out_codec);
+  set_codec_params(ofmt_ctx, out_codec_ctx, width, height, fps, bitrate);
+  initialize_codec_stream(out_stream, out_codec_ctx, out_codec, codec_profile);
 
   out_stream->codecpar->extradata = out_codec_ctx->extradata;
   out_stream->codecpar->extradata_size = out_codec_ctx->extradata_size;
@@ -200,13 +204,35 @@ void stream_video(double width, double height, int fps, int camID)
   avformat_free_context(ofmt_ctx);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-  // av_log_set_level(AV_LOG_DEBUG);
-  double width = 1280, height = 720;
-  int camID = 1, fps = 25;
+  int cameraID = 0, fps = 30, width = 800, height = 600, bitrate = 300000;
+  std::string h264profile = "high444";
+  std::string outputServer = "rtmp://localhost/live/stream";
+  bool dump_log = false;
 
-  stream_video(width, height, fps, camID);
+  auto cli = (
+    (option("-c", "--camera") & value("camera", cameraID)) % "camera ID (default: 0)",
+    (option("-o", "--output") & value("output", outputServer)) % "output RTMP server (default: rtmp://localhost/live/stream)",
+    (option("-f", "--fps") & value("fps", fps)) % "frames-per-second (default: 30)",
+    (option("-w", "--width") & value("width", width)) % "video width (default: 800)",
+    (option("-h", "--height") & value("height", height)) % "video height (default: 640)",
+    (option("-b", "--bitrate") & value("bitrate", bitrate)) % "stream bitrate in kb/s (default: 300000)",
+    (option("-p", "--profile") & value("profile", h264profile)) % "H264 codec profile (baseline | high | high10 | high422 | high444 | main) (default: high444)",
+    (option("-l", "--log") & value("log", dump_log)) % "print debug output (default: false)"
+  );
+
+  if (!parse(argc, argv, cli))
+  {
+    std::cout << make_man_page(cli, argv[0]) << std::endl;
+  }
+
+  if (dump_log)
+  {
+    av_log_set_level(AV_LOG_DEBUG);
+  }
+
+  stream_video(width, height, fps, cameraID, bitrate, h264profile, outputServer);
 
   return 0;
 }
