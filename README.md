@@ -60,7 +60,7 @@ Run the program to start streaming:
 ./build/rtmp-stream
 ```
 
-To set up different options for stream, here is `./rtmo-stream -h` output
+To set up different options for stream, here is `./rtmp-stream -h` output
 
 ```sh
 SYNOPSIS
