@@ -60,16 +60,48 @@ Run the program to start streaming:
 ./build/rtmp-stream
 ```
 
+To set up different options for stream, here is `./rtmo-stream -h` output
+
+```sh
+SYNOPSIS
+        ./rtmp-stream [-c <camera>] [-o <output>] [-f <fps>] [-w <width>] [-h <height>] [-b <bitrate>] [-p <profile>] [-l <log>]
+
+OPTIONS
+        -c, --camera <camera>
+                    camera ID (default: 0)
+
+        -o, --output <output>
+                    output RTMP server (default: rtmp://localhost/live/stream)
+
+        -f, --fps <fps>
+                    frames-per-second (default: 30)
+
+        -w, --width <width>
+                    video width (default: 800)
+
+        -h, --height <height>
+                    video height (default: 640)
+
+        -b, --bitrate <bitrate>
+                    stream bitrate in kb/s (default: 300000)
+
+        -p, --profile <profile>
+                    H264 codec profile (baseline | high | high10 | high422 | high444 | main) (default: high444)
+
+        -l, --log <log>
+                    print debug output (default: false)
+```
+
 Use VLC or `ffplay` to connect to live video stream:
 
 ```sh
-ffplay -sync ext rtmp://localhost/show/stream
+ffplay -sync ext rtmp://localhost/live/stream
 ```
 
 If everything worked you should see live-stream video.
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/1796022/35540393-fe658900-0555-11e8-8129-d5bdebc3a3d9.png">
+  <img src="https://user-images.githubusercontent.com/1796022/38590611-907bb7ba-3d32-11e8-994c-d3efe5b3651d.png">
 </p>
 
 ### LICENCE
