@@ -71,7 +71,7 @@ void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double
 void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec, std::string codec_profile)
 {
 #ifdef BUILD_AV_WITH_CODEC
-  // it is work well in version 2.8 and before.
+  // it work well in FFmpeg version 2.8 and before.
   stream->codec = codec_ctx;
 #else
   int ret = avcodec_parameters_from_context(stream->codecpar, codec_ctx);
