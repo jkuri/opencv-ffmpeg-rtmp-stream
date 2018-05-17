@@ -16,12 +16,8 @@ using namespace clipp;
 
 cv::VideoCapture get_device(int camID, double width, double height)
 {
-  cv::VideoCapture cam(camID);
-  if (!cam.isOpened())
-  {
-    std::cout << "Failed to open video capture device!" << std::endl;
-    exit(1);
-  }
+  cv::VideoCapture cam;
+  cam.release();
 
   cam.set(cv::CAP_PROP_FRAME_WIDTH, width);
   cam.set(cv::CAP_PROP_FRAME_HEIGHT, height);
@@ -74,6 +70,10 @@ void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double
 
 void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec, std::string codec_profile)
 {
+#ifdef BUILD_AV_WITH_CODEC
+  // it work well in FFmpeg version 2.8 and before.
+  stream->codec = codec_ctx;
+#else
   int ret = avcodec_parameters_from_context(stream->codecpar, codec_ctx);
   if (ret < 0)
   {
@@ -93,6 +93,7 @@ void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCo
     std::cout << "Could not open video encoder!" << std::endl;
     exit(1);
   }
+#endif
 }
 
 SwsContext *initialize_sample_scaler(AVCodecContext *codec_ctx, double width, double height)
@@ -125,6 +126,10 @@ void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *f
   AVPacket pkt = {0};
   av_init_packet(&pkt);
 
+#ifdef BUILD_AV_WITH_CODEC
+  int got_picture = 0;
+  avcodec_encode_video2(codec_ctx, &pkt, frame, &got_picture);
+#else
   int ret = avcodec_send_frame(codec_ctx, frame);
   if (ret < 0)
   {
@@ -138,7 +143,7 @@ void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *f
     std::cout << "Error receiving packet from codec context!" << std::endl;
     exit(1);
   }
-
+#endif
   av_interleaved_write_frame(fmt_ctx, &pkt);
   av_packet_unref(&pkt);
 }
@@ -157,7 +162,7 @@ void stream_video(double width, double height, int fps, int camID, int bitrate, 
   AVCodec *out_codec = nullptr;
   AVStream *out_stream = nullptr;
   AVCodecContext *out_codec_ctx = nullptr;
-
+  ofmt_ctx = avformat_alloc_context();
   initialize_avformat_context(ofmt_ctx, "flv");
   initialize_io_context(ofmt_ctx, output);
 
@@ -168,8 +173,13 @@ void stream_video(double width, double height, int fps, int camID, int bitrate, 
   set_codec_params(ofmt_ctx, out_codec_ctx, width, height, fps, bitrate);
   initialize_codec_stream(out_stream, out_codec_ctx, out_codec, codec_profile);
 
+#ifdef BUILD_AV_WITH_CODEC
+  out_stream->codec->extradata = out_codec_ctx->extradata;
+  out_stream->codec->extradata_size = out_codec_ctx->extradata_size;
+#else
   out_stream->codecpar->extradata = out_codec_ctx->extradata;
   out_stream->codecpar->extradata_size = out_codec_ctx->extradata_size;
+#endif
 
   av_dump_format(ofmt_ctx, 0, output, 1);
 
@@ -189,7 +199,19 @@ void stream_video(double width, double height, int fps, int camID, int bitrate, 
   bool end_of_stream = false;
   do
   {
+    if (!cam.isOpened()) {
+       cam.open(camID);
+    }
+    if (!cam.isOpened()) {
+      std::cout << "Failed to open video capture device!" << std::endl;
+      exit(1);
+    }
     cam >> image;
+    if (image.empty()) {
+      std::cout << "Failed to get image on capture device!" << std::endl;
+      exit(1);
+    }
+
     const int stride[] = {static_cast<int>(image.step[0])};
     sws_scale(swsctx, &image.data, stride, 0, image.rows, frame->data, frame->linesize);
     frame->pts += av_rescale_q(1, out_codec_ctx->time_base, out_stream->time_base);
