@@ -145,7 +145,9 @@ void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *f
 
 void stream_video(double width, double height, int fps, int camID, int bitrate, std::string codec_profile, std::string server)
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
   av_register_all();
+#endif
   avformat_network_init();
 
   const char *output = server.c_str();
@@ -225,6 +227,7 @@ int main(int argc, char *argv[])
   if (!parse(argc, argv, cli))
   {
     std::cout << make_man_page(cli, argv[0]) << std::endl;
+    return 1;
   }
 
   if (dump_log)

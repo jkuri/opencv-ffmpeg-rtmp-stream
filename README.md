@@ -26,10 +26,10 @@ For installing OpenCV there's a script inside `scripts/` folder:
 ./scripts/install-opencv.sh
 ```
 
-#### Build Nginx RTMP Server Docker image
+#### Run RTMP Server Docker image
 
 ```sh
-docker build -t nginx-rtmp ./nginx-rtmp-server
+docker run -it -p 1935:1935 --name rtmp-server jkuri/rtmp-server
 ```
 
 ### Compile & run
@@ -39,19 +39,6 @@ To compile source code just run:
 ```sh
 mkdir -p build && cd build
 cmake .. && make
-```
-
-Then run RTMP server using Docker image you built before and use attached `nginx.conf` configuration file.
-
-```sh
-docker run -p 1935:1935 -dit -v /path-to-this-repository/nginx-rtmp-config:/etc/nginx --name nginx-rtmp nginx-rtmp
-```
-
-Check that server is working with `docker ps` command:
-
-```sh
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                                          NAMES
-ec976b5ecd93        nginx-rtmp          "/bin/sh -c 'nginx -…"   21 minutes ago      Up 21 minutes       0.0.0.0:1935->1935/tcp                         nginx-rtmp
 ```
 
 Run the program to start streaming:
