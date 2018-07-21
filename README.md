@@ -2,6 +2,8 @@
 
 Example of live video streaming over RTMP protocol using OpenCV and FFMpeg.
 
+For streaming without using OpenCV check [ffmpeg-webcam-rtmp-stream](https://github.com/jkuri/ffmpeg-webcam-rtmp-stream) repository.
+
 ### Installation Guide
 
 #### Install FFMpeg
