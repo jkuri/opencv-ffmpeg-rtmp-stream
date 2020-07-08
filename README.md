@@ -11,7 +11,7 @@ For streaming without using OpenCV check [ffmpeg-webcam-rtmp-stream](https://git
 On MacOS.
 
 ```sh
-brew install ffmpeg --with-sdl2 --with-freetype
+brew install ffmpeg
 ```
 
 On Ubuntu Linux.
