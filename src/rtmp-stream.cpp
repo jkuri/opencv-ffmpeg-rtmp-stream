@@ -5,7 +5,8 @@
 #include <opencv2/video.hpp>
 #include "clipp.h"
 
-extern "C" {
+extern "C"
+{
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
@@ -213,16 +214,14 @@ int main(int argc, char *argv[])
   std::string outputServer = "rtmp://localhost/live/stream";
   bool dump_log = false;
 
-  auto cli = (
-    (option("-c", "--camera") & value("camera", cameraID)) % "camera ID (default: 0)",
-    (option("-o", "--output") & value("output", outputServer)) % "output RTMP server (default: rtmp://localhost/live/stream)",
-    (option("-f", "--fps") & value("fps", fps)) % "frames-per-second (default: 30)",
-    (option("-w", "--width") & value("width", width)) % "video width (default: 800)",
-    (option("-h", "--height") & value("height", height)) % "video height (default: 640)",
-    (option("-b", "--bitrate") & value("bitrate", bitrate)) % "stream bitrate in kb/s (default: 300000)",
-    (option("-p", "--profile") & value("profile", h264profile)) % "H264 codec profile (baseline | high | high10 | high422 | high444 | main) (default: high444)",
-    (option("-l", "--log") & value("log", dump_log)) % "print debug output (default: false)"
-  );
+  auto cli = ((option("-c", "--camera") & value("camera", cameraID)) % "camera ID (default: 0)",
+              (option("-o", "--output") & value("output", outputServer)) % "output RTMP server (default: rtmp://localhost/live/stream)",
+              (option("-f", "--fps") & value("fps", fps)) % "frames-per-second (default: 30)",
+              (option("-w", "--width") & value("width", width)) % "video width (default: 800)",
+              (option("-h", "--height") & value("height", height)) % "video height (default: 640)",
+              (option("-b", "--bitrate") & value("bitrate", bitrate)) % "stream bitrate in kb/s (default: 300000)",
+              (option("-p", "--profile") & value("profile", h264profile)) % "H264 codec profile (baseline | high | high10 | high422 | high444 | main) (default: high444)",
+              (option("-l", "--log") & value("log", dump_log)) % "print debug output (default: false)");
 
   if (!parse(argc, argv, cli))
   {
