@@ -124,7 +124,7 @@ AVFrame *allocate_frame_buffer(AVCodecContext *codec_ctx, double width, double h
 void write_frame(AVCodecContext *codec_ctx, AVFormatContext *fmt_ctx, AVFrame *frame)
 {
   AVPacket pkt = {0};
-  av_init_packet(&pkt);
+  av_new_packet(&pkt, 0);
 
   int ret = avcodec_send_frame(codec_ctx, frame);
   if (ret < 0)

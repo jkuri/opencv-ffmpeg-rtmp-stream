@@ -31,8 +31,14 @@ For installing OpenCV there's a script inside `scripts/` folder:
 #### Run RTMP Server Docker image
 
 ```sh
-docker run -it -p 1935:1935 --name rtmp-server jkuri/rtmp-server
+docker run -it -p 1935:1935 -p 8080:8080 --name rtmp-server jkuri/urtmp
 ```
+
+Then open your browser at `http://localhost:8080` where you can watch your published streams.
+
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/1796022/126041179-b1cd220d-b4ed-4b6d-80ee-214067bf6ae0.png" alt="uRTMP live stream">
+</p>
 
 ### Compile & run
 
@@ -86,12 +92,6 @@ Use VLC or `ffplay` to connect to live video stream:
 ```sh
 ffplay -sync ext rtmp://localhost/live/stream
 ```
-
-If everything worked you should see live-stream video.
-
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/1796022/38590611-907bb7ba-3d32-11e8-994c-d3efe5b3651d.png">
-</p>
 
 ### LICENCE
 
