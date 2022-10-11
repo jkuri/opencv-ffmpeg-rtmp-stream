@@ -73,7 +73,7 @@ void set_codec_params(AVFormatContext *&fctx, AVCodecContext *&codec_ctx, double
   }
 }
 
-void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, AVCodec *&codec, std::string codec_profile)
+void initialize_codec_stream(AVStream *&stream, AVCodecContext *&codec_ctx, const AVCodec *&codec, std::string codec_profile)
 {
   int ret = avcodec_parameters_from_context(stream->codecpar, codec_ctx);
   if (ret < 0)
@@ -111,9 +111,10 @@ SwsContext *initialize_sample_scaler(AVCodecContext *codec_ctx, double width, do
 AVFrame *allocate_frame_buffer(AVCodecContext *codec_ctx, double width, double height)
 {
   AVFrame *frame = av_frame_alloc();
+  int i = av_image_get_buffer_size(codec_ctx->pix_fmt, width, height, 1);
+  uint8_t *framebuf = new uint8_t[i];
 
-  std::vector<uint8_t> framebuf(av_image_get_buffer_size(codec_ctx->pix_fmt, width, height, 1));
-  av_image_fill_arrays(frame->data, frame->linesize, framebuf.data(), codec_ctx->pix_fmt, width, height, 1);
+  av_image_fill_arrays(frame->data, frame->linesize, framebuf, codec_ctx->pix_fmt, width, height, 1);
   frame->width = width;
   frame->height = height;
   frame->format = static_cast<int>(codec_ctx->pix_fmt);
@@ -157,7 +158,7 @@ void stream_video(double width, double height, int fps, int camID, int bitrate, 
   std::vector<uint8_t> imgbuf(height * width * 3 + 16);
   cv::Mat image(height, width, CV_8UC3, imgbuf.data(), width * 3);
   AVFormatContext *ofmt_ctx = nullptr;
-  AVCodec *out_codec = nullptr;
+  const AVCodec *out_codec = nullptr;
   AVStream *out_stream = nullptr;
   AVCodecContext *out_codec_ctx = nullptr;
 
